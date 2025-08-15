@@ -5,7 +5,7 @@ This script is designed to be called by Hyprland keybinds
 
 Usage in hyprland.conf:
 bind = ALT, Tab, exec, /path/to/hyprtabs/hyprtabs
-bind = ALT, grave, exec, /path/to/hyprtabs/hyprtabs minimize  # Alt+` to minimize current window
+bind = ALT, grave, exec, /path/to/hyprtabs/hyprtabs minimize  # Alt+ to minimize current window
 """
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

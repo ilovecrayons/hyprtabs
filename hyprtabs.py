@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 HyprTabs - Advanced Alt-Tab window switcher with minimize/restore for Hyprland
-Replaces the broken niflveil restore menu with a proper cycling interface
 """
 
 import json
@@ -323,6 +322,7 @@ class AltTabWindow(Gtk.Window):
         self.current_index = 0
         self.fifo_thread = None
         self.running = True
+        self.alt_pressed = False  # Track Alt key state
         self.setup_ui()
         self.setup_keybindings()
         self.load_windows()
@@ -339,6 +339,12 @@ class AltTabWindow(Gtk.Window):
         self.set_skip_pager_hint(True)
         self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
         
+        # Enable keyboard events and ensure focus
+        self.set_can_focus(True)
+        self.set_accept_focus(True)
+        self.set_focus_on_map(True)
+        self.add_events(Gdk.EventMask.KEY_PRESS_MASK | Gdk.EventMask.KEY_RELEASE_MASK | Gdk.EventMask.FOCUS_CHANGE_MASK)
+        
         # Center on screen
         self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         
@@ -346,8 +352,8 @@ class AltTabWindow(Gtk.Window):
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.main_box.set_margin_top(20)
         self.main_box.set_margin_bottom(20)
-        self.main_box.set_margin_left(20)
-        self.main_box.set_margin_right(20)
+        self.main_box.set_margin_start(20)
+        self.main_box.set_margin_end(20)
         self.add(self.main_box)
         
         # Title label
@@ -355,15 +361,16 @@ class AltTabWindow(Gtk.Window):
         self.title_label.set_markup("<b>Alt+Tab Window Switcher</b>")
         self.main_box.pack_start(self.title_label, False, False, 0)
         
-        # Window list
+        # Window list - optimize ListBox settings
         self.list_box = Gtk.ListBox()
         self.list_box.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.list_box.set_activate_on_single_click(False)  # Disable animations
         self.main_box.pack_start(self.list_box, True, True, 0)
         
         # Instructions
         self.instructions = Gtk.Label()
         self.instructions.set_markup(
-            "<small>Hold Alt + Tab to cycle • Enter to switch • Esc to cancel</small>"
+            "<small>Hold Alt + Tab to cycle • Release Alt to switch • Esc to cancel</small>"
         )
         self.main_box.pack_start(self.instructions, False, False, 0)
         
@@ -384,11 +391,37 @@ class AltTabWindow(Gtk.Window):
             margin: 2px;
             border-radius: 5px;
             background-color: rgba(255, 255, 255, 0.1);
+            transition: none;
         }
         
         .window-item:selected {
             background-color: rgba(100, 150, 255, 0.8);
+            transition: none;
         }
+        
+        .window-item:hover {
+            transition: none;
+        }
+        
+        .window-active {
+            background-color: rgba(0, 100, 150, 0.3);
+            border-left: 4px solid #00ff66;
+        }
+        
+        .window-active:selected {
+            background-color: rgba(0, 100, 255, 0.8);
+        }
+        
+        
+        .window-hidden {
+            background-color: rgba(100, 0, 0, 0.3);
+            border-left: 4px solid #ff3333;
+        }
+        
+        .window-hidden:selected {
+            background-color: rgba(200, 0, 0, 0.8);
+        }
+        
         
         .minimized {
             color: #888;
@@ -406,7 +439,20 @@ class AltTabWindow(Gtk.Window):
     def setup_keybindings(self):
         """Setup keyboard event handlers"""
         self.connect("key-press-event", self.on_key_press)
+        self.connect("key-release-event", self.on_key_release)
         self.connect("focus-out-event", self.on_focus_out)
+        self.connect("focus-in-event", self.on_focus_in)
+    
+    def on_focus_in(self, widget, event):
+        """Handle focus gained"""
+        return False
+    
+    def _regrab_focus(self):
+        """Regrab focus if we lost it"""
+        if self.running:
+            self.grab_focus()
+            self.present()
+        return False
         
     def start_fifo_listener(self):
         """Start FIFO listener thread"""
@@ -446,7 +492,7 @@ class AltTabWindow(Gtk.Window):
         for child in self.list_box.get_children():
             self.list_box.remove(child)
         
-        # Add window items
+        # Add window items in batch for better performance
         for i, window in enumerate(self.windows):
             row = self.create_window_row(window)
             self.list_box.add(row)
@@ -454,31 +500,75 @@ class AltTabWindow(Gtk.Window):
         # Select first item
         if self.windows:
             self.current_index = 0
-            self.update_selection()
+            # Do initial selection setup immediately
+            row = self.list_box.get_row_at_index(0)
+            if row:
+                self.list_box.select_row(row)
+            
+            # Set initial title
+            current_window = self.windows[0]
+            status = "Hidden" if current_window.is_minimized else f"WS {current_window.workspace}"
+            self.title_label.set_markup(
+                f"<b>1/{len(self.windows)}</b> - {current_window.class_name} ({status})"
+            )
+        
+        # Check if Alt is currently pressed when window opens
+        # This is important for Alt+Tab behavior - assume it's pressed for faster startup
+        self.alt_pressed = True  # Assume Alt is pressed since we're likely opened with Alt+Tab
             
         self.show_all()
+        
+        # Force focus grab after showing
+        GLib.idle_add(self._grab_focus_and_input)
+    
+    def _grab_focus_and_input(self):
+        """Grab focus and input to ensure keyboard events are received"""
+        # Grab focus
+        self.grab_focus()
+        self.present()
+        
+        # Grab keyboard input
+        window = self.get_window()
+        if window:
+            # Try to grab keyboard
+            display = window.get_display()
+            seat = display.get_default_seat()
+            if seat:
+                keyboard = seat.get_keyboard()
+                if keyboard:
+                    result = seat.grab(window, Gdk.SeatCapabilities.KEYBOARD, True, None, None, None)
+                    if result != Gdk.GrabStatus.SUCCESS:
+                        print(f"Warning: Failed to grab keyboard input: {result}")
+        
+        return False  # Don't repeat
     
     def create_window_row(self, window: Window) -> Gtk.ListBoxRow:
         """Create a row for a window"""
         row = Gtk.ListBoxRow()
         row.get_style_context().add_class("window-item")
         
+        # Add color coding based on window state
+        if window.is_minimized:
+            row.get_style_context().add_class("window-hidden")
+        else:
+            row.get_style_context().add_class("window-active")
+        
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         
         # Icon/Status
-        status_label = Gtk.Label(window.icon)
+        status_label = Gtk.Label(label=window.icon)
         status_label.set_size_request(30, -1)
         box.pack_start(status_label, False, False, 0)
         
         # Window info
         info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         
-        title_label = Gtk.Label(f"{window.class_name}")
+        title_label = Gtk.Label(label=f"{window.class_name}")
         title_label.set_halign(Gtk.Align.START)
         title_label.set_markup(f"<b>{window.class_name}</b>")
         info_box.pack_start(title_label, False, False, 0)
         
-        subtitle_label = Gtk.Label(window.title)
+        subtitle_label = Gtk.Label(label=window.title)
         subtitle_label.set_halign(Gtk.Align.START)
         subtitle_label.set_ellipsize(3)  # ELLIPSIZE_END
         subtitle_label.set_max_width_chars(50)
@@ -504,16 +594,19 @@ class AltTabWindow(Gtk.Window):
         # Ensure index is valid
         self.current_index = self.current_index % len(self.windows)
         
-        # Select the row
+        # Select the row immediately without animations
         row = self.list_box.get_row_at_index(self.current_index)
         if row:
             self.list_box.select_row(row)
+            # Ensure row is visible
+            row.grab_focus()
             
-        # Update title with current window info
+        # Update title with current window info (simplified)
         if self.current_index < len(self.windows):
             current_window = self.windows[self.current_index]
+            status = "Hidden" if current_window.is_minimized else f"WS {current_window.workspace}"
             self.title_label.set_markup(
-                f"<b>Window {self.current_index + 1}/{len(self.windows)}</b> - {current_window.display_title}"
+                f"<b>{self.current_index + 1}/{len(self.windows)}</b> - {current_window.class_name} ({status})"
             )
     
     def cycle_next(self):
@@ -548,6 +641,15 @@ class AltTabWindow(Gtk.Window):
     def close_window(self):
         """Close the alt-tab window"""
         self.running = False
+        
+        # Release keyboard grab if we have one
+        window = self.get_window()
+        if window:
+            display = window.get_display()
+            seat = display.get_default_seat()
+            if seat:
+                seat.ungrab()
+        
         SingletonManager.release_lock()
         self.destroy()
         Gtk.main_quit()
@@ -557,6 +659,10 @@ class AltTabWindow(Gtk.Window):
         keyval = event.keyval
         state = event.state
         
+        # Track Alt key state - check both individual Alt keys and modifier state
+        if keyval in (Gdk.KEY_Alt_L, Gdk.KEY_Alt_R) or (state & Gdk.ModifierType.MOD1_MASK):
+            self.alt_pressed = True
+        
         # Check for Alt+Tab or Tab while Alt is held
         if keyval == Gdk.KEY_Tab:
             if state & Gdk.ModifierType.SHIFT_MASK:
@@ -565,7 +671,7 @@ class AltTabWindow(Gtk.Window):
                 self.cycle_next()
             return True
         
-        # Enter or Space to activate
+        # Enter or Space to activate (manual activation)
         elif keyval in (Gdk.KEY_Return, Gdk.KEY_space, Gdk.KEY_KP_Enter):
             self.activate_current_window()
             return True
@@ -585,11 +691,30 @@ class AltTabWindow(Gtk.Window):
         
         return False
     
+    def on_key_release(self, widget, event):
+        """Handle key release events"""
+        keyval = event.keyval
+        state = event.state
+        
+        # Check for Alt key release - both individual keys and when modifier is no longer pressed
+        if keyval in (Gdk.KEY_Alt_L, Gdk.KEY_Alt_R):
+            self.alt_pressed = False
+            # Auto-activate current window when Alt is released
+            self.activate_current_window()
+            return True
+        
+        # Also check if Alt modifier is no longer active (fallback)
+        elif self.alt_pressed and not (state & Gdk.ModifierType.MOD1_MASK):
+            self.alt_pressed = False
+            self.activate_current_window()
+            return True
+        
+        return False
+    
     def on_focus_out(self, widget, event):
-        """Handle focus lost - close window"""
-        # Note: This might be too aggressive, you can comment it out
-        # if you want the window to stay open when losing focus
-        # self.close_window()
+        """Handle focus lost - regrab focus to ensure we keep keyboard input"""
+        # Immediately regrab focus to prevent losing keyboard input
+        GLib.idle_add(self._regrab_focus)
         return False
 
 def main():
