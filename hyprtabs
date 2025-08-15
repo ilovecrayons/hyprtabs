@@ -1,0 +1,27 @@
+#!/bin/bash
+"""
+HyprTabs Launcher - Handles the alt-tab keybind behavior
+This script is designed to be called by Hyprland keybinds
+
+Usage in hyprland.conf:
+bind = ALT, Tab, exec, /path/to/hyprtabs/hyprtabs
+bind = ALT, grave, exec, /path/to/hyprtabs/hyprtabs minimize  # Alt+` to minimize current window
+"""
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON_SCRIPT="$SCRIPT_DIR/hyprtabs.py"
+
+# Check if hyprtabs.py exists
+if [ ! -f "$PYTHON_SCRIPT" ]; then
+    echo "Error: hyprtabs.py not found at $PYTHON_SCRIPT" >&2
+    exit 1
+fi
+
+# Check if an instance is already running
+if [ -f /tmp/hyprtabs.lock ]; then
+    # Send next command to cycle through windows
+    python3 "$PYTHON_SCRIPT" next
+else
+    # Start new instance
+    python3 "$PYTHON_SCRIPT" "$@"
+fi
