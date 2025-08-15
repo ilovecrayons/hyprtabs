@@ -1,4 +1,4 @@
-# HyprTabs - Advanced Alt-Tab Window Switcher for Hyprland
+# HyprTabs - Alt-Tab Window Switcher for Hyprland
 
 A modern Alt-Tab window switcher for Hyprland that supports both minimizing and restoring windows. Rewrite of Mauitron/NiflVeil without eww UI dependencies.
 
