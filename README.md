@@ -24,6 +24,9 @@ A modern Alt-Tab window switcher for Hyprland that supports both minimizing and 
    # Replace with your actual path
    $hyprtabs = ~/hyprtabs
    
+   # Include performance optimizations
+   source = ~/hyprtabs/hyprland-rules.conf
+   
    # Main Alt+Tab functionality
    bind = ALT, Tab, exec, $hyprtabs
    

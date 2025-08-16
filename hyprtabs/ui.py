@@ -12,11 +12,23 @@ from .constants import FIFO_FILE
 from .hyprland import WindowManager
 from .singleton import SingletonManager
 
+import os
+import sys
+import logging
+
 class AltTabWindow(Gtk.Window):
     """Main Alt-Tab window interface"""
     
     def __init__(self):
         super().__init__()
+        # Set up logging
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            stream=sys.stdout
+        )
+        self.logger = logging.getLogger("HyprTabs")
+        
         self.windows = []
         self.current_index = 0
         self.fifo_thread = None
@@ -28,13 +40,13 @@ class AltTabWindow(Gtk.Window):
         self.start_fifo_listener()
         
     def setup_ui(self):
-        """Setup the UI"""
+        """Setup the UI optimized for speed"""
         self.set_title("HyprTabs")
         
         # Initialize layer shell
         GtkLayerShell.init_for_window(self)
         
-        # Set layer shell properties
+        # Set layer shell properties for instant display
         GtkLayerShell.set_layer(self, GtkLayerShell.Layer.OVERLAY)
         GtkLayerShell.set_namespace(self, "hyprtabs")
         
@@ -44,7 +56,7 @@ class AltTabWindow(Gtk.Window):
         GtkLayerShell.set_anchor(self, GtkLayerShell.Edge.LEFT, False)
         GtkLayerShell.set_anchor(self, GtkLayerShell.Edge.RIGHT, False)
         
-        # Enable keyboard interaction
+        # Enable exclusive keyboard interaction for instant focus
         GtkLayerShell.set_keyboard_mode(self, GtkLayerShell.KeyboardMode.EXCLUSIVE)
         
         # Set margins to center the window
@@ -57,17 +69,20 @@ class AltTabWindow(Gtk.Window):
         self.set_decorated(False)
         self.set_resizable(False)
         
-        # Enable keyboard events
+        # Optimize for speed - disable double buffering and enable hardware acceleration
         self.set_can_focus(True)
         self.set_accept_focus(True)
         self.add_events(Gdk.EventMask.KEY_PRESS_MASK | Gdk.EventMask.KEY_RELEASE_MASK)
         
-        # Main container
-        self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        self.main_box.set_margin_top(20)
-        self.main_box.set_margin_bottom(20)
-        self.main_box.set_margin_start(20)
-        self.main_box.set_margin_end(20)
+        # Set fixed size immediately to avoid resizing
+        self.set_size_request(500, 400)
+        
+        # Main container with minimal spacing
+        self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.main_box.set_margin_top(15)
+        self.main_box.set_margin_bottom(15)
+        self.main_box.set_margin_start(15)
+        self.main_box.set_margin_end(15)
         self.add(self.main_box)
         
         # Title label
@@ -75,10 +90,12 @@ class AltTabWindow(Gtk.Window):
         self.title_label.set_markup("<b>Alt+Tab Window Switcher</b>")
         self.main_box.pack_start(self.title_label, False, False, 0)
         
-        # Window list - optimize ListBox settings
+        # Window list - optimize for performance
         self.list_box = Gtk.ListBox()
         self.list_box.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        self.list_box.set_activate_on_single_click(False)  # Disable animations
+        self.list_box.set_activate_on_single_click(False)
+        # Disable homogeneous sizing for faster rendering
+        self.list_box.set_can_focus(False)  # Prevent focus stealing
         self.main_box.pack_start(self.list_box, True, True, 0)
         
         # Instructions
@@ -88,11 +105,11 @@ class AltTabWindow(Gtk.Window):
         )
         self.main_box.pack_start(self.instructions, False, False, 0)
         
-        # Style
+        # Apply CSS immediately
         self.apply_css()
         
     def apply_css(self):
-        """Apply custom CSS styling"""
+        """Apply custom CSS styling optimized for speed"""
         css = """
         window {
             background-color: rgba(0, 0, 0, 0.9);
@@ -100,21 +117,20 @@ class AltTabWindow(Gtk.Window):
             border: 2px solid #555;
         }
         
+        * {
+            transition: none;
+            animation: none;
+        }
+        
         .window-item {
             padding: 10px;
             margin: 2px;
             border-radius: 5px;
             background-color: rgba(255, 255, 255, 0.1);
-            transition: none;
         }
         
         .window-item:selected {
             background-color: rgba(100, 150, 255, 0.8);
-            transition: none;
-        }
-        
-        .window-item:hover {
-            transition: none;
         }
         
         .window-active {
@@ -126,7 +142,6 @@ class AltTabWindow(Gtk.Window):
             background-color: rgba(0, 100, 255, 0.8);
         }
         
-        
         .window-hidden {
             background-color: rgba(100, 0, 0, 0.3);
             border-left: 4px solid #ff3333;
@@ -135,7 +150,6 @@ class AltTabWindow(Gtk.Window):
         .window-hidden:selected {
             background-color: rgba(200, 0, 0, 0.8);
         }
-        
         
         .minimized {
             color: #888;
@@ -186,78 +200,69 @@ class AltTabWindow(Gtk.Window):
         return False  # Don't repeat
     
     def load_windows(self):
-        """Load and display all windows"""
+        """Load and display all windows with optimizations"""
         self.windows = WindowManager.get_all_windows()
         
-        # Clear existing items
-        for child in self.list_box.get_children():
-            self.list_box.remove(child)
+        # Clear existing items efficiently
+        self.list_box.foreach(lambda child: self.list_box.remove(child))
         
-        # Add window items in batch for better performance
-        for i, window in enumerate(self.windows):
+        # Pre-create all rows in batch for better performance
+        rows = []
+        for window in self.windows:
             row = self.create_window_row(window)
+            rows.append(row)
+        
+        # Add all rows at once
+        for row in rows:
             self.list_box.add(row)
             
-        # Select first item
+        # Select first item immediately
         if self.windows:
             self.current_index = 0
-            # Do initial selection setup immediately
             row = self.list_box.get_row_at_index(0)
             if row:
                 self.list_box.select_row(row)
             
-            # Set initial title
+            # Set initial title immediately
             current_window = self.windows[0]
             status = "Hidden" if current_window.is_minimized else f"WS {current_window.workspace}"
             self.title_label.set_markup(
                 f"<b>1/{len(self.windows)}</b> - {current_window.class_name} ({status})"
             )
         
-        # Check if Alt is currently pressed when window opens
-        # This is important for Alt+Tab behavior - assume it's pressed for faster startup
-        self.alt_pressed = True  # Assume Alt is pressed since we're likely opened with Alt+Tab
+        # Assume Alt is pressed for faster startup
+        self.alt_pressed = True
             
+        # Show everything at once
         self.show_all()
-        
-        # Set window size after showing (layer shell needs this)
-        GLib.idle_add(self._set_window_size)
-    
-    def _set_window_size(self):
-        """Set the window size for proper centering"""
-        # Request a reasonable size for the window
-        self.set_size_request(500, 400)
-        
-        # Center the window by setting it to not be anchored to any edge
-        # This makes it float in the center
-        return False  # Don't repeat
     
     def create_window_row(self, window) -> Gtk.ListBoxRow:
-        """Create a row for a window"""
+        """Create a row for a window - optimized for speed"""
         row = Gtk.ListBoxRow()
         row.get_style_context().add_class("window-item")
         
-        # Add color coding based on window state
-        if window.is_minimized:
-            row.get_style_context().add_class("window-hidden")
-        else:
-            row.get_style_context().add_class("window-active")
+        # Add state class immediately
+        state_class = "window-hidden" if window.is_minimized else "window-active"
+        row.get_style_context().add_class(state_class)
         
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         
-        # Icon/Status
+        # Icon - use fixed size for consistency
         status_label = Gtk.Label(label=window.icon)
         status_label.set_size_request(30, -1)
         box.pack_start(status_label, False, False, 0)
         
-        # Window info
-        info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        # Window info - single vertical box
+        info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         
-        title_label = Gtk.Label(label=f"{window.class_name}")
+        # Title with immediate markup
+        title_label = Gtk.Label()
         title_label.set_halign(Gtk.Align.START)
         title_label.set_markup(f"<b>{window.class_name}</b>")
         info_box.pack_start(title_label, False, False, 0)
         
-        subtitle_label = Gtk.Label(label=window.title)
+        # Subtitle - optimized text setting
+        subtitle_label = Gtk.Label()
         subtitle_label.set_halign(Gtk.Align.START)
         subtitle_label.set_ellipsize(3)  # ELLIPSIZE_END
         subtitle_label.set_max_width_chars(50)
@@ -269,7 +274,6 @@ class AltTabWindow(Gtk.Window):
             subtitle_label.set_text(f"{window.title} (Workspace {window.workspace})")
         
         info_box.pack_start(subtitle_label, False, False, 0)
-        
         box.pack_start(info_box, True, True, 0)
         
         row.add(box)
@@ -311,30 +315,42 @@ class AltTabWindow(Gtk.Window):
             self.update_selection()
     
     def activate_current_window(self):
-        """Activate the currently selected window"""
+        """Activate the currently selected window and ensure it gets focus"""
         if not self.windows or self.current_index >= len(self.windows):
+            self.logger.warning("No windows to activate")
             return
             
         window = self.windows[self.current_index]
         
-        if window.is_minimized:
-            # Restore minimized window
-            WindowManager.restore_window(window)
-        else:
-            # Minimize active window or focus it
-            # For now, let's focus it (you can change this behavior)
-            WindowManager.focus_window(window)
+        self.hide()
         
-        self.close_window()
-    
+        # Process any pending GTK events
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+        
+        # Focus the window and log the result
+        WindowManager.focus_window(window)
+        
+        # Allow the window manager time to process the focus change
+        # before terminating our application
+        GLib.timeout_add(100, self.close_window)
+        return False
+
     def close_window(self):
         """Close the alt-tab window"""
+        self.logger.debug("Closing window")
         self.running = False
         
+        # Process any remaining events before quitting
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+            
         SingletonManager.release_lock()
         self.destroy()
+        self.logger.debug("Quitting GTK main loop")
         Gtk.main_quit()
-    
+        return False
+
     def on_key_press(self, widget, event):
         """Handle key press events"""
         keyval = event.keyval

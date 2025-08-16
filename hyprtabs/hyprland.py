@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from typing import List, Optional
 
 from .constants import CACHE_DIR, CACHE_FILE
@@ -12,6 +13,26 @@ from .window import Window
 
 class WindowManager:
     """Handles Hyprland window operations"""
+    
+    # Cache for window data to reduce hyprctl calls
+    _window_cache = None
+    _cache_timestamp = 0
+    _cache_duration = 0.1  # Cache for 100ms for instant startup
+    
+    @staticmethod
+    def _get_cached_windows() -> Optional[dict]:
+        """Get cached window data if it's still fresh"""
+        current_time = time.time()
+        if (WindowManager._window_cache is not None and 
+            current_time - WindowManager._cache_timestamp < WindowManager._cache_duration):
+            return WindowManager._window_cache
+        return None
+    
+    @staticmethod
+    def _cache_windows(windows_data: dict):
+        """Cache window data"""
+        WindowManager._window_cache = windows_data
+        WindowManager._cache_timestamp = time.time()
     
     @staticmethod
     def run_hyprctl(command: List[str]) -> Optional[str]:
@@ -52,7 +73,7 @@ class WindowManager:
                     is_minimized=False
                 )
                 windows.append(window)
-                
+            
             return windows
         except json.JSONDecodeError:
             return []
@@ -91,14 +112,27 @@ class WindowManager:
     
     @staticmethod
     def focus_window(window: Window) -> bool:
-        """Focus a window"""
+        """Focus a window and bring it to front"""
         if window.is_minimized:
             return WindowManager.restore_window(window)
         else:
-            output = WindowManager.run_hyprctl([
+            # Switch to the window's workspace first if needed
+            if window.workspace > 0:
+                output1 = WindowManager.run_hyprctl([
+                    "dispatch", "workspace", str(window.workspace)
+                ])
+            
+            # Focus the window
+            output2 = WindowManager.run_hyprctl([
                 "dispatch", "focuswindow", f"address:{window.address}"
             ])
-            return output is not None
+            
+            # Bring to front to ensure it's actually focused
+            output3 = WindowManager.run_hyprctl([
+                "dispatch", "bringactivetotop"
+            ])
+            
+            return output2 is not None
     
     @staticmethod
     def minimize_window(window: Window) -> bool:
@@ -142,10 +176,21 @@ class WindowManager:
         ])
         
         if output is not None:
-            # Focus the window
+            # Ensure the current workspace is active
+            WindowManager.run_hyprctl([
+                "dispatch", "workspace", str(current_ws)
+            ])
+            
+            # Focus the window after restoring
             WindowManager.run_hyprctl([
                 "dispatch", "focuswindow", f"address:{window.address}"
             ])
+            
+            # Bring to front to ensure visibility
+            WindowManager.run_hyprctl([
+                "dispatch", "bringactivetotop"
+            ])
+            
             # Remove from cache
             WindowManager._remove_from_cache(window)
             return True

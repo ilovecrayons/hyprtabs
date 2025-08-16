@@ -7,15 +7,20 @@ import json
 import sys
 import os
 import signal
-import gi
 
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
-
+# Fast imports - only import what we need immediately
 from hyprtabs.constants import CACHE_DIR, CACHE_FILE, FIFO_FILE
 from hyprtabs.hyprland import WindowManager
 from hyprtabs.singleton import SingletonManager
-from hyprtabs.ui import AltTabWindow
+
+# Defer GTK imports until we actually need the GUI
+def create_gui():
+    """Import GTK and create the window only when needed"""
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk
+    from hyprtabs.ui import AltTabWindow
+    return AltTabWindow(), Gtk
 
 def main():
     """Main entry point"""
@@ -109,8 +114,8 @@ def main():
     # Create FIFO for communication
     SingletonManager.create_fifo()
     
-    # Create and show the window
-    window = AltTabWindow()
+    # Create and show the window with optimized loading
+    window, Gtk = create_gui()
     
     def on_destroy(widget):
         SingletonManager.release_lock()
@@ -123,9 +128,7 @@ def main():
     window.connect("destroy", on_destroy)
     window.show_all()
     
-    # Grab keyboard focus
-    window.grab_focus()
-    window.present()
+    # No need for explicit focus grabbing with layer shell
     
     try:
         Gtk.main()
