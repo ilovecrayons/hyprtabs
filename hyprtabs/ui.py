@@ -75,7 +75,7 @@ class AltTabWindow(Gtk.Window):
         self.add_events(Gdk.EventMask.KEY_PRESS_MASK | Gdk.EventMask.KEY_RELEASE_MASK)
         
         # Set fixed size immediately to avoid resizing
-        self.set_size_request(500, 400)
+        self.set_size_request(800, 400)
         
         # Main container with minimal spacing
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
