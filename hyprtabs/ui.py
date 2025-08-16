@@ -5,7 +5,8 @@ import threading
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
-from gi.repository import Gtk, Gdk, GLib
+gi.require_version('GtkLayerShell', '0.1')
+from gi.repository import Gtk, Gdk, GLib, GtkLayerShell
 
 from .constants import FIFO_FILE
 from .hyprland import WindowManager
@@ -29,22 +30,37 @@ class AltTabWindow(Gtk.Window):
     def setup_ui(self):
         """Setup the UI"""
         self.set_title("HyprTabs")
+        
+        # Initialize layer shell
+        GtkLayerShell.init_for_window(self)
+        
+        # Set layer shell properties
+        GtkLayerShell.set_layer(self, GtkLayerShell.Layer.OVERLAY)
+        GtkLayerShell.set_namespace(self, "hyprtabs")
+        
+        # Set anchors to center the window
+        GtkLayerShell.set_anchor(self, GtkLayerShell.Edge.TOP, False)
+        GtkLayerShell.set_anchor(self, GtkLayerShell.Edge.BOTTOM, False)
+        GtkLayerShell.set_anchor(self, GtkLayerShell.Edge.LEFT, False)
+        GtkLayerShell.set_anchor(self, GtkLayerShell.Edge.RIGHT, False)
+        
+        # Enable keyboard interaction
+        GtkLayerShell.set_keyboard_mode(self, GtkLayerShell.KeyboardMode.EXCLUSIVE)
+        
+        # Set margins to center the window
+        GtkLayerShell.set_margin(self, GtkLayerShell.Edge.TOP, 0)
+        GtkLayerShell.set_margin(self, GtkLayerShell.Edge.BOTTOM, 0)
+        GtkLayerShell.set_margin(self, GtkLayerShell.Edge.LEFT, 0)
+        GtkLayerShell.set_margin(self, GtkLayerShell.Edge.RIGHT, 0)
+        
+        # Remove regular window properties that don't apply to layer shell
         self.set_decorated(False)
         self.set_resizable(False)
-        self.set_modal(True)
-        self.set_keep_above(True)
-        self.set_skip_taskbar_hint(True)
-        self.set_skip_pager_hint(True)
-        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
         
-        # Enable keyboard events and ensure focus
+        # Enable keyboard events
         self.set_can_focus(True)
         self.set_accept_focus(True)
-        self.set_focus_on_map(True)
-        self.add_events(Gdk.EventMask.KEY_PRESS_MASK | Gdk.EventMask.KEY_RELEASE_MASK | Gdk.EventMask.FOCUS_CHANGE_MASK)
-        
-        # Center on screen
-        self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        self.add_events(Gdk.EventMask.KEY_PRESS_MASK | Gdk.EventMask.KEY_RELEASE_MASK)
         
         # Main container
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -138,20 +154,7 @@ class AltTabWindow(Gtk.Window):
         """Setup keyboard event handlers"""
         self.connect("key-press-event", self.on_key_press)
         self.connect("key-release-event", self.on_key_release)
-        self.connect("focus-out-event", self.on_focus_out)
-        self.connect("focus-in-event", self.on_focus_in)
     
-    def on_focus_in(self, widget, event):
-        """Handle focus gained"""
-        return False
-    
-    def _regrab_focus(self):
-        """Regrab focus if we lost it"""
-        if self.running:
-            self.grab_focus()
-            self.present()
-        return False
-        
     def start_fifo_listener(self):
         """Start FIFO listener thread"""
         def listen_for_commands():
@@ -216,28 +219,16 @@ class AltTabWindow(Gtk.Window):
             
         self.show_all()
         
-        # Force focus grab after showing
-        GLib.idle_add(self._grab_focus_and_input)
+        # Set window size after showing (layer shell needs this)
+        GLib.idle_add(self._set_window_size)
     
-    def _grab_focus_and_input(self):
-        """Grab focus and input to ensure keyboard events are received"""
-        # Grab focus
-        self.grab_focus()
-        self.present()
+    def _set_window_size(self):
+        """Set the window size for proper centering"""
+        # Request a reasonable size for the window
+        self.set_size_request(500, 400)
         
-        # Grab keyboard input
-        window = self.get_window()
-        if window:
-            # Try to grab keyboard
-            display = window.get_display()
-            seat = display.get_default_seat()
-            if seat:
-                keyboard = seat.get_keyboard()
-                if keyboard:
-                    result = seat.grab(window, Gdk.SeatCapabilities.KEYBOARD, True, None, None, None)
-                    if result != Gdk.GrabStatus.SUCCESS:
-                        print(f"Warning: Failed to grab keyboard input: {result}")
-        
+        # Center the window by setting it to not be anchored to any edge
+        # This makes it float in the center
         return False  # Don't repeat
     
     def create_window_row(self, window) -> Gtk.ListBoxRow:
@@ -340,14 +331,6 @@ class AltTabWindow(Gtk.Window):
         """Close the alt-tab window"""
         self.running = False
         
-        # Release keyboard grab if we have one
-        window = self.get_window()
-        if window:
-            display = window.get_display()
-            seat = display.get_default_seat()
-            if seat:
-                seat.ungrab()
-        
         SingletonManager.release_lock()
         self.destroy()
         Gtk.main_quit()
@@ -407,10 +390,4 @@ class AltTabWindow(Gtk.Window):
             self.activate_current_window()
             return True
         
-        return False
-    
-    def on_focus_out(self, widget, event):
-        """Handle focus lost - regrab focus to ensure we keep keyboard input"""
-        # Immediately regrab focus to prevent losing keyboard input
-        GLib.idle_add(self._regrab_focus)
         return False
