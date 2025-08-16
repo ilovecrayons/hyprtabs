@@ -41,12 +41,7 @@ A modern Alt-Tab window switcher for Hyprland that supports both minimizing and 
 2. While holding `Alt`, press `Tab` repeatedly to cycle through windows
 3. **Release `Alt` to automatically activate the selected window**
 4. Press `Esc` to cancel without switching
-
-### Keyboard Controls
-- `Tab` / `↓` / `j`: Next window 
-- **Release Alt**: Auto-activate selected window (Windows-style behavior)
-- `Enter` / `Space`: Manual activate selected window
-- `Esc`: Cancel and close
+5. Press `Alt+~` to minimize the current window
 
 ### Command Line Interface
 ```bash

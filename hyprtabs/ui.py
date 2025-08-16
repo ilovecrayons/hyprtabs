@@ -169,6 +169,12 @@ class AltTabWindow(Gtk.Window):
         .minimized {
             color: #888;
         }
+        
+        .workspace-number {
+            opacity: 0.7;
+            font-weight: bold;
+            color: white;
+        }
         """
         
         style_provider = Gtk.CssProvider()
@@ -331,10 +337,19 @@ class AltTabWindow(Gtk.Window):
             subtitle_label.get_style_context().add_class("minimized")
             subtitle_label.set_markup(f"<i>{window.title} (Hidden)</i>")
         else:
-            subtitle_label.set_text(f"{window.title} (Workspace {window.workspace})")
+            subtitle_label.set_text(window.title)
         
         info_box.pack_start(subtitle_label, False, False, 0)
         box.pack_start(info_box, True, True, 0)
+        
+        # Workspace number - displayed as half-opaque standalone number on the right
+        if not window.is_minimized:
+            workspace_label = Gtk.Label()
+            workspace_label.set_text(str(window.workspace))
+            workspace_label.get_style_context().add_class("workspace-number")
+            workspace_label.set_halign(Gtk.Align.CENTER)
+            workspace_label.set_valign(Gtk.Align.CENTER)
+            box.pack_end(workspace_label, False, False, 0)
         
         row.add(box)
         return row
