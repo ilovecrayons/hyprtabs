@@ -21,7 +21,7 @@ fi
 
 # Make scripts executable
 echo "🔧 Making scripts executable..."
-chmod +x hyprtabs hyprtabs.py
+chmod +x hyprtabs-runner hyprtabs.py
 
 # Test Python script compilation
 echo "🧪 Testing Python script..."
@@ -49,7 +49,7 @@ echo "📝 Next steps:"
 echo "1. Add this to your ~/.config/hypr/hyprland.conf:"
 echo ""
 echo "   # HyprTabs Alt-Tab"
-echo "   \$hyprtabs = $CURRENT_DIR/hyprtabs"
+echo "   \$hyprtabs = $CURRENT_DIR/hyprtabs-runner"
 echo "   bind = ALT, Tab, exec, \$hyprtabs"
 echo "   bind = ALT, grave, exec, \$hyprtabs minimize"
 echo ""
