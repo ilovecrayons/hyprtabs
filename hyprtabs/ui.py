@@ -93,9 +93,14 @@ class AltTabWindow(Gtk.Window):
         # Window list - optimize for performance
         self.list_box = Gtk.ListBox()
         self.list_box.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        self.list_box.set_activate_on_single_click(False)
+        self.list_box.set_activate_on_single_click(True)  # Enable single click activation
         # Disable homogeneous sizing for faster rendering
         self.list_box.set_can_focus(False)  # Prevent focus stealing
+        
+        # Connect mouse click events
+        self.list_box.connect("row-activated", self.on_row_activated)
+        self.list_box.connect("row-selected", self.on_row_selected)
+        
         self.main_box.pack_start(self.list_box, True, True, 0)
         
         # Instructions
@@ -407,3 +412,31 @@ class AltTabWindow(Gtk.Window):
             return True
         
         return False
+    
+    def on_row_activated(self, listbox, row):
+        """Handle mouse click activation of a row"""
+        if row is None:
+            return
+            
+        # Get the index of the clicked row
+        clicked_index = row.get_index()
+        if 0 <= clicked_index < len(self.windows):
+            self.current_index = clicked_index
+            self.update_selection()
+            # Activate the clicked window immediately
+            self.activate_current_window()
+        
+        return True
+    
+    def on_row_selected(self, listbox, row):
+        """Handle row selection (hover/click without activation)"""
+        if row is None:
+            return
+            
+        # Update current index when row is selected
+        selected_index = row.get_index()
+        if 0 <= selected_index < len(self.windows):
+            self.current_index = selected_index
+            self.update_selection()
+        
+        return True
