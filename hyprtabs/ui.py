@@ -140,19 +140,29 @@ class AltTabWindow(Gtk.Window):
         
         .window-active {
             background-color: rgba(0, 100, 150, 0.3);
-            border-left: 4px solid #00ff66;
         }
         
         .window-active:selected {
+            background-color: rgba(0, 100, 150, 0.8);
+            border-left: 6px solid #00ff66;
+            border-right: 6px solid #00ff66;
+        }
+
+        .window-active:hover {
             background-color: rgba(0, 100, 255, 0.8);
         }
         
         .window-hidden {
             background-color: rgba(100, 0, 0, 0.3);
-            border-left: 4px solid #ff3333;
         }
         
         .window-hidden:selected {
+            background-color: rgba(100, 0, 0, 0.8);
+            border-left: 6px solid #ff3333;
+            border-right: 6px solid #ff3333;
+        }
+
+        .window-hidden:hover {
             background-color: rgba(200, 0, 0, 0.8);
         }
         
