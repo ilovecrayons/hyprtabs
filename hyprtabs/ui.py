@@ -218,6 +218,9 @@ class AltTabWindow(Gtk.Window):
         """Load and display all windows with optimizations"""
         self.windows = WindowManager.get_all_windows()
         
+        # Sort windows according to the specified criteria
+        self.windows = self._sort_windows(self.windows)
+        
         # Clear existing items efficiently
         self.list_box.foreach(lambda child: self.list_box.remove(child))
         
@@ -250,6 +253,48 @@ class AltTabWindow(Gtk.Window):
             
         # Show everything at once
         self.show_all()
+    
+    def _sort_windows(self, windows):
+        """
+        Sort windows according to the specified criteria:
+        1. Last active window first
+        2. Then windows sorted by workspace number
+        3. Within a workspace, active windows before hidden ones
+        """
+        if not windows:
+            return windows
+        
+        # Get the currently active window
+        active_window = WindowManager.get_active_window()
+        active_address = active_window.address if active_window else None
+        
+        # Separate the currently active window from the rest
+        current_window = None
+        other_windows = []
+        
+        for window in windows:
+            if window.address == active_address:
+                current_window = window
+            else:
+                other_windows.append(window)
+        
+        # Sort other windows by workspace, then by visibility status
+        def sort_key(window):
+            # Primary sort: workspace number (0 for minimized windows goes last)
+            workspace = window.workspace if not window.is_minimized else float('inf')
+            # Secondary sort: active windows (False) before hidden ones (True)
+            is_hidden = window.is_minimized
+            return (workspace, is_hidden)
+        
+        other_windows.sort(key=sort_key)
+        
+        # Combine: current window first, then sorted other windows
+        result = []
+        if current_window:
+            result.append(current_window)
+        result.extend(other_windows)
+        
+        return result
     
     def create_window_row(self, window) -> Gtk.ListBoxRow:
         """Create a row for a window - optimized for speed"""

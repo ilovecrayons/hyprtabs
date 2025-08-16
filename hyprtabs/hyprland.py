@@ -104,6 +104,25 @@ class WindowManager:
             return []
     
     @staticmethod
+    def get_active_window() -> Optional[Window]:
+        """Get the currently active/focused window"""
+        output = WindowManager.run_hyprctl(["activewindow", "-j"])
+        if not output:
+            return None
+        
+        try:
+            active_data = json.loads(output)
+            return Window(
+                address=active_data.get("address", ""),
+                title=active_data.get("title", ""),
+                class_name=active_data.get("class", ""),
+                workspace=active_data.get("workspace", {}).get("id", 1),
+                is_minimized=False
+            )
+        except json.JSONDecodeError:
+            return None
+    
+    @staticmethod
     def get_all_windows() -> List[Window]:
         """Get all windows (active + minimized)"""
         active_windows = WindowManager.get_active_windows()
