@@ -123,7 +123,7 @@ void UIManager::applyCss() {
     const char* css = R"(
         window {
             background-color: rgba(0, 0, 0, 0.9);
-            border-radius: 10px;
+            border-radius: 20px;
             border: 4px solid rgba(102, 213, 238, 1);
         }
         
@@ -133,11 +133,9 @@ void UIManager::applyCss() {
         }
         
         .window-item {
-            padding: 10px;
+            padding: 7px;
             margin: 2px;
             border-radius: 5px;
-            background-color: rgba(255, 255, 255, 0.1);
-            min-height: 60px;
         }
         
         .window-item:selected {
