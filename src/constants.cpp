@@ -8,13 +8,10 @@ const std::string Constants::FIFO_FILE = "/tmp/hyprtabs.fifo";
 
 const std::unordered_map<std::string, std::string>& Constants::getIcons() {
     static const std::unordered_map<std::string, std::string> icons = {
-        {"firefox", ""},
-        {"alacritty", ""},
+        {"microsoft-edge", ""},
         {"discord", "󰙯"},
-        {"steam", ""},
-        {"chromium", ""},
         {"code", "󰨞"},
-        {"spotify", ""},
+        {"spotify", ""},
         {"default", "󰖲"}
     };
     return icons;

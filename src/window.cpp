@@ -5,9 +5,10 @@
 std::unordered_map<std::string, std::string> Window::icon_cache_;
 
 Window::Window(const std::string& address, const std::string& title, 
-               const std::string& class_name, int workspace, bool is_minimized)
+               const std::string& class_name, int workspace, bool is_minimized,
+               const std::string& workspace_name)
     : address_(address), title_(title), class_name_(class_name), 
-      workspace_(workspace), is_minimized_(is_minimized) {
+      workspace_(workspace), workspace_name_(workspace_name), is_minimized_(is_minimized) {
     
     icon_ = getIconCached();
     
@@ -55,6 +56,14 @@ std::string Window::getIconCached() {
 }
 
 std::string Window::getDisplayTitle() const {
-    std::string status = is_minimized_ ? "Hidden" : "WS " + std::to_string(workspace_);
+    std::string status = is_minimized_ ? "Hidden" : "WS " + getWorkspaceDisplay();
     return icon_ + " " + class_name_ + " - " + title_ + " [" + status + "]";
+}
+
+std::string Window::getWorkspaceDisplay() const {
+    // For special workspaces (negative workspace IDs), show "S"
+    if (workspace_ < 0 || isInSpecialWorkspace()) {
+        return "[S]";
+    }
+    return std::to_string(workspace_);
 }

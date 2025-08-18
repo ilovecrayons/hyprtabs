@@ -72,20 +72,27 @@ std::vector<Window> HyprlandManager::getActiveWindows() {
         json clients = json::parse(output);
         
         for (const auto& client : clients) {
-            // Skip special workspaces (minimized windows are in special:minimum)
+            // Include all windows, including those in special workspaces
+            bool is_in_special = false;
+            std::string workspace_name = "";
+            int workspace_id = 1;
+            
             if (client.contains("workspace") && client["workspace"].contains("name")) {
-                std::string workspace_name = client["workspace"]["name"];
-                if (workspace_name.find("special:") == 0) {
-                    continue;
-                }
+                workspace_name = client["workspace"]["name"];
+                workspace_id = client["workspace"].value("id", 1);
+                is_in_special = (workspace_name.find("special:") == 0);
             }
+            
+            // For special:minimum, treat as minimized; for other special workspaces, treat as regular windows
+            bool is_minimized = (workspace_name == "special:minimum");
             
             windows.emplace_back(
                 client.value("address", ""),
                 client.value("title", ""),
                 client.value("class", ""),
-                client.contains("workspace") ? client["workspace"].value("id", 1) : 1,
-                false
+                workspace_id,
+                is_minimized,
+                workspace_name
             );
         }
     } catch (const json::parse_error&) {
@@ -113,7 +120,8 @@ std::vector<Window> HyprlandManager::getMinimizedWindows() {
                 item.value("original_title", ""),
                 item.value("class", ""),
                 0, // Minimized windows don't have a workspace
-                true
+                true,
+                "special:minimum" // Minimized windows are in special:minimum
             );
         }
     } catch (const std::exception&) {
@@ -124,14 +132,9 @@ std::vector<Window> HyprlandManager::getMinimizedWindows() {
 }
 
 std::vector<Window> HyprlandManager::getAllWindows() {
-    auto active_windows = getActiveWindows();
-    auto minimized_windows = getMinimizedWindows();
-    
-    active_windows.insert(active_windows.end(), 
-                         minimized_windows.begin(), 
-                         minimized_windows.end());
-    
-    return active_windows;
+    // getActiveWindows now includes all windows, including those in special workspaces
+    // so we no longer need to merge with getMinimizedWindows to avoid duplication
+    return getActiveWindows();
 }
 
 std::optional<Window> HyprlandManager::getActiveWindow() {
@@ -142,12 +145,21 @@ std::optional<Window> HyprlandManager::getActiveWindow() {
     
     try {
         json active_data = json::parse(*result);
+        
+        std::string workspace_name = "";
+        int workspace_id = 1;
+        if (active_data.contains("workspace")) {
+            workspace_id = active_data["workspace"].value("id", 1);
+            workspace_name = active_data["workspace"].value("name", "");
+        }
+        
         return Window(
             active_data.value("address", ""),
             active_data.value("title", ""),
             active_data.value("class", ""),
-            active_data.contains("workspace") ? active_data["workspace"].value("id", 1) : 1,
-            false
+            workspace_id,
+            false,
+            workspace_name
         );
     } catch (const json::parse_error&) {
         return std::nullopt;
@@ -158,9 +170,18 @@ bool HyprlandManager::focusWindow(const Window& window) {
     if (window.isMinimized()) {
         return restoreWindow(window);
     } else {
-        // Switch to the window's workspace first if needed
-        if (window.getWorkspace() > 0) {
-            runHyprctl({"dispatch", "workspace", std::to_string(window.getWorkspace())});
+        // Handle special workspaces
+        if (window.isInSpecialWorkspace()) {
+            // For special workspaces, use the workspace name directly
+            auto result = runHyprctl({"dispatch", "togglespecialworkspace", window.getWorkspaceName().substr(8)}); // Remove "special:" prefix
+            if (!result) {
+                return false;
+            }
+        } else {
+            // Switch to the window's workspace first if needed
+            if (window.getWorkspace() > 0) {
+                runHyprctl({"dispatch", "workspace", std::to_string(window.getWorkspace())});
+            }
         }
         
         // Focus the window

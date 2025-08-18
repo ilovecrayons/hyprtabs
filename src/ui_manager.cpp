@@ -253,7 +253,7 @@ void UIManager::loadWindows() {
         
         // Set initial title
         const auto& current_window = windows_[0];
-        std::string status = current_window.isMinimized() ? "Hidden" : "WS " + std::to_string(current_window.getWorkspace());
+        std::string status = current_window.isMinimized() ? "Hidden" : "WS " + current_window.getWorkspaceDisplay();
         std::string title_text = "<b>1/" + std::to_string(windows_.size()) + "</b> - " + 
                                 current_window.getClassName() + " (" + status + ")";
         gtk_label_set_markup(GTK_LABEL(title_label_), title_text.c_str());
@@ -370,9 +370,9 @@ GtkWidget* UIManager::createWindowRow(const Window& window) {
     if (window.isMinimized()) {
         GtkStyleContext* state_context = gtk_widget_get_style_context(state_label);
         gtk_style_context_add_class(state_context, "minimized");
-        gtk_label_set_markup(GTK_LABEL(state_label), "<b>[<i>Hidden</i>]</b>");
+        gtk_label_set_markup(GTK_LABEL(state_label), "[<i>Hidden</i>]");
     } else {
-        gtk_label_set_markup(GTK_LABEL(state_label), "<b>[Active]</b>");
+        gtk_label_set_markup(GTK_LABEL(state_label), "<i>[Active]</i>");
     }
     
     gtk_box_pack_start(GTK_BOX(info_box), state_label, FALSE, FALSE, 0);
@@ -380,7 +380,7 @@ GtkWidget* UIManager::createWindowRow(const Window& window) {
     
     // Workspace number or spacer
     if (!window.isMinimized()) {
-        GtkWidget* workspace_label = gtk_label_new(std::to_string(window.getWorkspace()).c_str());
+        GtkWidget* workspace_label = gtk_label_new(window.getWorkspaceDisplay().c_str());
         GtkStyleContext* ws_context = gtk_widget_get_style_context(workspace_label);
         gtk_style_context_add_class(ws_context, "workspace-number");
         gtk_widget_set_halign(workspace_label, GTK_ALIGN_CENTER);
@@ -439,7 +439,7 @@ void UIManager::updateSelection() {
     // Update title with current window info
     if (current_index_ < windows_.size()) {
         const auto& current_window = windows_[current_index_];
-        std::string status = current_window.isMinimized() ? "Hidden" : "WS " + std::to_string(current_window.getWorkspace());
+        std::string status = current_window.isMinimized() ? "Hidden" : "WS " + current_window.getWorkspaceDisplay();
         std::string title_text = "<b>" + std::to_string(current_index_ + 1) + "/" + std::to_string(windows_.size()) + 
                                 "</b> - " + current_window.getClassName() + " (" + status + ")";
         gtk_label_set_markup(GTK_LABEL(title_label_), title_text.c_str());
