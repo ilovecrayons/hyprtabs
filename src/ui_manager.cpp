@@ -124,7 +124,7 @@ void UIManager::applyCss() {
         window {
             background-color: rgba(0, 0, 0, 0.9);
             border-radius: 10px;
-            border: 2px solid #555;
+            border: 4px solid rgba(102, 213, 238, 1);
         }
         
         * {
