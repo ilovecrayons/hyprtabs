@@ -1,6 +1,6 @@
-# HyprTabs - Alt-Tab Window Switcher for Hyprland
+# Hyprtabs - hyprctl Alt+Tab helper
 
-A modern Alt-Tab window switcher for Hyprland that supports both minimizing and restoring windows. Rewrite of Mauitron/NiflVeil without eww UI dependencies.
+An Alt-Tab window switcher for Hyprland that supports both minimizing and restoring windows. Rewrite of Mauitron/NiflVeil without eww UI dependencies.
 
 ## Features
 
@@ -14,23 +14,18 @@ A modern Alt-Tab window switcher for Hyprland that supports both minimizing and 
    ./install.sh
    ```
 
-2. Make the scripts executable:
-   ```bash
-   chmod +x hyprtabs hyprtabs.py
-   ```
-
-3. Add keybinds to your Hyprland config (`~/.config/hypr/hyprland.conf`):
+2. Add keybinds to your Hyprland config (`~/.config/hypr/hyprland.conf`):
    ```bash
    # Replace with your actual path
-   $hyprtabs = ~/hyprtabs
-   
+   $hyprtabs = ~/hyprtabs/build/hyprtabs
+
    # Include performance optimizations
    source = ~/hyprtabs/hyprland-rules.conf
    
    # Main Alt+Tab functionality
    bind = ALT, Tab, exec, $hyprtabs
    
-   # Optional: Alt+` to minimize current window
+   # Alt+` to minimize current window
    bind = ALT, grave, exec, $hyprtabs minimize
    ```
 
@@ -50,15 +45,6 @@ A modern Alt-Tab window switcher for Hyprland that supports both minimizing and 
 
 # Minimize current window
 ./hyprtabs minimize
-
-# Restore specific window by ID
-./hyprtabs restore 0x12345678
-
-# Restore all minimized windows
-./hyprtabs restore-all
-
-# Show status (for waybar integration)
-./hyprtabs show
 ```
 
 ## Window Behavior
@@ -69,12 +55,5 @@ A modern Alt-Tab window switcher for Hyprland that supports both minimizing and 
   - Hidden window → Restores to current workspace and focuses
   - Active window → Focuses the window
 
-## Customization
-
-You can modify the Python script to change:
-- Window icons (edit the `ICONS` dictionary)
-- UI styling (edit the CSS in `apply_css()`)
-- Behavior (modify what happens when selecting active vs hidden windows)
-- Keyboard shortcuts
 
 
