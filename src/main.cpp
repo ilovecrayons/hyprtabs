@@ -41,6 +41,7 @@ void showHelp() {
     std::cout << "HyprTabs - Alt-Tab window switcher for Hyprland\n\n";
     std::cout << "Usage:\n";
     std::cout << "  hyprtabs           - Show window switcher\n";
+    std::cout << "  hyprtabs minimize  - Minimize current window\n";
     std::cout << "  hyprtabs --help    - Show this help\n";
     std::cout << "  hyprtabs --version - Show version\n\n";
     std::cout << "Controls:\n";
@@ -72,6 +73,26 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--version" || arg == "-v") {
             showVersion();
             return 0;
+        } else if (arg == "minimize") {
+            // Handle minimize command without initializing GTK
+            try {
+                auto activeWindow = HyprlandManager::getActiveWindow();
+                if (activeWindow) {
+                    if (HyprlandManager::minimizeWindow(*activeWindow)) {
+                        std::cout << "Window minimized successfully." << std::endl;
+                        return 0;
+                    } else {
+                        std::cerr << "Failed to minimize window." << std::endl;
+                        return 1;
+                    }
+                } else {
+                    std::cerr << "No active window found." << std::endl;
+                    return 1;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "Error minimizing window: " << e.what() << std::endl;
+                return 1;
+            }
         }
     }
     
