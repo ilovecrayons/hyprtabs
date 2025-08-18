@@ -334,17 +334,24 @@ GtkWidget* UIManager::createWindowRow(const Window& window) {
     gtk_widget_set_valign(subtitle_label, GTK_ALIGN_CENTER);
     gtk_label_set_ellipsize(GTK_LABEL(subtitle_label), PANGO_ELLIPSIZE_END);
     gtk_label_set_max_width_chars(GTK_LABEL(subtitle_label), 50);
+    gtk_label_set_text(GTK_LABEL(subtitle_label), window.getTitle().c_str());
+    gtk_box_pack_start(GTK_BOX(info_box), subtitle_label, FALSE, FALSE, 0);
+    
+    // Status row with window state
+    GtkWidget* state_label = gtk_label_new(nullptr);
+    gtk_widget_set_halign(state_label, GTK_ALIGN_START);
+    gtk_widget_set_valign(state_label, GTK_ALIGN_CENTER);
+    // gtk_widget_set_margin_top(state_label, 1);  // Add spacing from row 2
     
     if (window.isMinimized()) {
-        GtkStyleContext* subtitle_context = gtk_widget_get_style_context(subtitle_label);
-        gtk_style_context_add_class(subtitle_context, "minimized");
-        std::string subtitle_markup = "<i>" + window.getTitle() + " (Hidden)</i>";
-        gtk_label_set_markup(GTK_LABEL(subtitle_label), subtitle_markup.c_str());
+        GtkStyleContext* state_context = gtk_widget_get_style_context(state_label);
+        gtk_style_context_add_class(state_context, "minimized");
+        gtk_label_set_markup(GTK_LABEL(state_label), "<b>[<i>Hidden</i>]</b>");
     } else {
-        gtk_label_set_text(GTK_LABEL(subtitle_label), window.getTitle().c_str());
+        gtk_label_set_markup(GTK_LABEL(state_label), "<b>[Active]</b>");
     }
     
-    gtk_box_pack_start(GTK_BOX(info_box), subtitle_label, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(info_box), state_label, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(box), info_box, TRUE, TRUE, 0);
     
     // Workspace number or spacer
