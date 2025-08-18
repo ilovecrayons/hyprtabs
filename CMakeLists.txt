@@ -19,7 +19,7 @@ find_package(nlohmann_json REQUIRED)
 # Include directories
 include_directories(${GTK3_INCLUDE_DIRS})
 include_directories(${LAYER_SHELL_INCLUDE_DIRS})
-include_directories(src)
+include_directories(include)
 
 # Link directories
 link_directories(${GTK3_LIBRARY_DIRS})
