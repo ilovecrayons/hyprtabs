@@ -11,7 +11,7 @@
 UIManager::UIManager() 
     : window_(nullptr), main_box_(nullptr), title_label_(nullptr), 
       list_box_(nullptr), instructions_(nullptr), current_index_(0),
-      running_(true), alt_pressed_(false) {
+      running_(true), alt_pressed_(true) {  // Assume Alt is pressed for faster startup
     
     setupUI();
 }
@@ -43,8 +43,11 @@ void UIManager::setupUI() {
     gtk_layer_set_anchor(GTK_WINDOW(window_), GTK_LAYER_SHELL_EDGE_LEFT, FALSE);
     gtk_layer_set_anchor(GTK_WINDOW(window_), GTK_LAYER_SHELL_EDGE_RIGHT, FALSE);
     
-    // Enable exclusive keyboard interaction for instant focus
+    // Enable keyboard interaction but not exclusive mode to avoid conflicts
     gtk_layer_set_keyboard_mode(GTK_WINDOW(window_), GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE);
+    
+    // Set keyboard interactivity to ensure we capture all keyboard events
+    gtk_layer_set_keyboard_interactivity(GTK_WINDOW(window_), TRUE);
     
     // Set margins to center the window
     gtk_layer_set_margin(GTK_WINDOW(window_), GTK_LAYER_SHELL_EDGE_TOP, 0);
@@ -73,6 +76,10 @@ void UIManager::setupUI() {
     gtk_widget_set_can_focus(window_, TRUE);
     gtk_widget_set_can_default(window_, TRUE);
     gtk_widget_add_events(window_, GDK_KEY_PRESS_MASK | GDK_KEY_RELEASE_MASK);
+    
+    // Ensure window grabs focus immediately
+    gtk_window_set_modal(GTK_WINDOW(window_), TRUE);
+    gtk_window_set_keep_above(GTK_WINDOW(window_), TRUE);
     
     // Main container with minimal spacing
     main_box_ = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
@@ -231,8 +238,21 @@ void UIManager::loadWindows() {
     // Assume Alt is pressed for faster startup
     alt_pressed_ = true;
     
-    // Show everything at once
+    // Show everything at once and grab focus
     gtk_widget_show_all(window_);
+    gtk_window_present(GTK_WINDOW(window_));
+    gtk_widget_grab_focus(window_);
+    
+    // Try to grab keyboard to ensure we get all events
+    GdkDisplay* display = gdk_display_get_default();
+    GdkSeat* seat = gdk_display_get_default_seat(display);
+    if (seat) {
+        GdkWindow* gdk_window = gtk_widget_get_window(window_);
+        if (gdk_window) {
+            gdk_seat_grab(seat, gdk_window, GDK_SEAT_CAPABILITY_KEYBOARD, 
+                         FALSE, nullptr, nullptr, nullptr, nullptr);
+        }
+    }
     
     // Start FIFO listener
     startFifoListener();
@@ -349,23 +369,18 @@ GtkWidget* UIManager::createWindowRow(const Window& window) {
 }
 
 void UIManager::updateSelection() {
-    std::cout << "updateSelection() called, windows size: " << windows_.size() << ", current_index: " << current_index_ << std::endl;
     if (windows_.empty()) {
         return;
     }
     
     // Ensure index is valid
     current_index_ = current_index_ % windows_.size();
-    std::cout << "Validated current_index: " << current_index_ << std::endl;
     
     // Select the row immediately without animations
     GtkListBoxRow* row = gtk_list_box_get_row_at_index(GTK_LIST_BOX(list_box_), current_index_);
     if (row) {
-        std::cout << "Found row at index " << current_index_ << ", selecting it" << std::endl;
         gtk_list_box_select_row(GTK_LIST_BOX(list_box_), row);
         gtk_widget_grab_focus(GTK_WIDGET(row));
-    } else {
-        std::cout << "No row found at index " << current_index_ << std::endl;
     }
     
     // Update title with current window info
@@ -379,10 +394,8 @@ void UIManager::updateSelection() {
 }
 
 void UIManager::cycleNext() {
-    std::cout << "cycleNext() called, windows size: " << windows_.size() << ", current_index: " << current_index_ << std::endl;
     if (!windows_.empty()) {
         current_index_ = (current_index_ + 1) % windows_.size();
-        std::cout << "New current_index: " << current_index_ << std::endl;
         updateSelection();
     }
 }
@@ -499,25 +512,18 @@ bool UIManager::handleKeyPress(GdkEventKey* event) {
     guint keyval = event->keyval;
     GdkModifierType state = static_cast<GdkModifierType>(event->state);
     
-    std::cout << "Key pressed: " << keyval << " (GDK_KEY_Tab=" << GDK_KEY_Tab << "), state: " << state << std::endl;
-    
     // Track Alt key state
     if (keyval == GDK_KEY_Alt_L || keyval == GDK_KEY_Alt_R || (state & GDK_MOD1_MASK)) {
         alt_pressed_ = true;
-        std::cout << "Alt pressed detected" << std::endl;
     }
     
-    // Check for Alt+Tab or Tab while Alt is held
-    if (keyval == GDK_KEY_Tab) {
-        std::cout << "Tab key detected, current_index before: " << current_index_ << std::endl;
-        if (state & GDK_SHIFT_MASK) {
-            std::cout << "Calling cyclePrev()" << std::endl;
+    // Handle Tab key (including when Alt is held) and ISO_Left_Tab for Shift+Tab
+    if (keyval == GDK_KEY_Tab || keyval == GDK_KEY_ISO_Left_Tab) {
+        if (state & GDK_SHIFT_MASK || keyval == GDK_KEY_ISO_Left_Tab) {
             cyclePrev();
         } else {
-            std::cout << "Calling cycleNext()" << std::endl;
             cycleNext();
         }
-        std::cout << "Tab key handled, current_index after: " << current_index_ << std::endl;
         return true;
     }
     
@@ -574,6 +580,10 @@ void UIManager::run() {
 
 void UIManager::show() {
     gtk_widget_show_all(window_);
+    
+    // Ensure window gets keyboard focus
+    gtk_window_present(GTK_WINDOW(window_));
+    gtk_widget_grab_focus(window_);
 }
 
 void UIManager::hide() {
