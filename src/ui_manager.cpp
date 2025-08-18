@@ -104,7 +104,18 @@ void UIManager::setupUI() {
     g_signal_connect(list_box_, "row-activated", G_CALLBACK(onRowActivated), this);
     g_signal_connect(list_box_, "row-selected", G_CALLBACK(onRowSelected), this);
     
-    gtk_box_pack_start(GTK_BOX(main_box_), list_box_, TRUE, TRUE, 0);
+    // Create scrolled window for the list
+    GtkWidget* scrolled_window = gtk_scrolled_window_new(nullptr, nullptr);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window),
+                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_overlay_scrolling(GTK_SCROLLED_WINDOW(scrolled_window), FALSE);
+    
+    // Set maximum height for 9 items (approximately 70px per item including padding)
+    gtk_widget_set_size_request(scrolled_window, -1, 630);
+    gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(scrolled_window), 630);
+    
+    gtk_container_add(GTK_CONTAINER(scrolled_window), list_box_);
+    gtk_box_pack_start(GTK_BOX(main_box_), scrolled_window, TRUE, TRUE, 0);
     
     // Instructions
     instructions_ = gtk_label_new(nullptr);
@@ -180,6 +191,21 @@ void UIManager::applyCss() {
             font-size: 14px;
             color: #ffffff;
             min-width: 25px;
+        }
+        
+        scrollbar {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        
+        scrollbar slider {
+            background: rgba(102, 213, 238, 0.7);
+            border-radius: 10px;
+            min-width: 4px;
+        }
+        
+        scrollbar slider:hover {
+            background: rgba(0, 208, 255, 0.9);
         }
     )";
     
@@ -385,6 +411,29 @@ void UIManager::updateSelection() {
     if (row) {
         gtk_list_box_select_row(GTK_LIST_BOX(list_box_), row);
         gtk_widget_grab_focus(GTK_WIDGET(row));
+        
+        // Ensure the selected row is visible in the scrolled window
+        GtkWidget* scrolled_window = gtk_widget_get_parent(list_box_);
+        if (GTK_IS_SCROLLED_WINDOW(scrolled_window)) {
+            GtkAdjustment* vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
+            
+            // Get the row allocation to determine its position
+            GtkAllocation row_allocation;
+            gtk_widget_get_allocation(GTK_WIDGET(row), &row_allocation);
+            
+            // Calculate if we need to scroll
+            double current_value = gtk_adjustment_get_value(vadj);
+            double page_size = gtk_adjustment_get_page_size(vadj);
+            double row_top = row_allocation.y;
+            double row_bottom = row_allocation.y + row_allocation.height;
+            
+            // Scroll if the row is not fully visible
+            if (row_top < current_value) {
+                gtk_adjustment_set_value(vadj, row_top);
+            } else if (row_bottom > current_value + page_size) {
+                gtk_adjustment_set_value(vadj, row_bottom - page_size);
+            }
+        }
     }
     
     // Update title with current window info
