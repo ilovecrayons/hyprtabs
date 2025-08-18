@@ -318,23 +318,22 @@ GtkWidget* UIManager::createWindowRow(const Window& window) {
     // Window info - single vertical box
     GtkWidget* info_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
     
-    // Title with fixed width
+    // Title with consistent alignment
     GtkWidget* title_label = gtk_label_new(nullptr);
     gtk_widget_set_halign(title_label, GTK_ALIGN_START);
+    gtk_widget_set_valign(title_label, GTK_ALIGN_CENTER);
     std::string title_markup = "<b>" + window.getClassName() + "</b>";
     gtk_label_set_markup(GTK_LABEL(title_label), title_markup.c_str());
     gtk_label_set_ellipsize(GTK_LABEL(title_label), PANGO_ELLIPSIZE_END);
-    gtk_label_set_max_width_chars(GTK_LABEL(title_label), 40);
-    gtk_widget_set_size_request(title_label, 300, -1);
+    gtk_label_set_max_width_chars(GTK_LABEL(title_label), 50);
     gtk_box_pack_start(GTK_BOX(info_box), title_label, FALSE, FALSE, 0);
     
-    // Subtitle with fixed width
+    // Subtitle with consistent alignment  
     GtkWidget* subtitle_label = gtk_label_new(nullptr);
     gtk_widget_set_halign(subtitle_label, GTK_ALIGN_START);
+    gtk_widget_set_valign(subtitle_label, GTK_ALIGN_CENTER);
     gtk_label_set_ellipsize(GTK_LABEL(subtitle_label), PANGO_ELLIPSIZE_END);
     gtk_label_set_max_width_chars(GTK_LABEL(subtitle_label), 50);
-    gtk_label_set_width_chars(GTK_LABEL(subtitle_label), 50);
-    gtk_widget_set_size_request(subtitle_label, 400, -1);
     
     if (window.isMinimized()) {
         GtkStyleContext* subtitle_context = gtk_widget_get_style_context(subtitle_label);
